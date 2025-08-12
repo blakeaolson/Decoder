@@ -8,8 +8,10 @@ from torch.nn import functional as F
 # -----------------------------------------------------
 batch_size = 4 # how many independent sequences will we process in parallel?
 block_size = 8 # what is the maximum context length for predictions?
-d_model = 32 # hidden representation for what a token is 
-d_k = 64 # hidden layer for attention 
+d_model = 64 * 8 # hidden representation for what a token is 
+num_heads = 8 # number of heads in multi headed attention
+d_k = d_model / num_heads # hidden layer for attention 
+
 # -----------------------------------------------------
 
 # Process and tokenize the input data
@@ -55,12 +57,12 @@ class Embedding(nn.Module):
         self.positional_encoding = nn.Embedding(block_size, d_model)
 
     def forward(self, inputs):
-        B, T = inputs.shape
+        _, T = inputs.shape
 
-        embeddings = self.embedding(inputs) * math.sqrt(self.d_model) # (B, T, d_model)
+        embeddings = self.embedding(inputs) * math.sqrt(d_model) # (B, T, d_model)
         pos_encoding = self.positional_encoding(torch.arange(T)) # (T, d_model)
 
-        return embeddings + pos_encoding # (batch_size, block_size, d_model)
+        return embeddings + pos_encoding # (B, T, d_model)
 
 class CausalAttention(nn.Module):
     def __init__(self): 
@@ -88,6 +90,14 @@ class CausalAttention(nn.Module):
         output = attention @ v  
 
         return output # (B, T, d_k)
+
+class MultiHeadedAttention(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.heads = nn.ModuleList([CausalAttention() for _ in range(num_heads)])
+
+    def forward(self, inputs):
+        return torch.cat([h(inputs) for h in self.heads], dim=-1)
 
 
 # -----------------------------------------------------
