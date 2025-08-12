@@ -1,0 +1,44 @@
+import torch 
+import torch.nn as nn 
+from torch.nn import functional as F
+
+
+# Hyperparameters
+# -----------------------------------------------------
+batch_size = 4 # how many independent sequences will we process in parallel?
+block_size = 8 # what is the maximum context length for predictions?
+# -----------------------------------------------------
+
+# Process and tokenize the input data
+# -----------------------------------------------------
+with open('input.txt', 'r', encoding='utf-8') as f:
+    text = f.read()
+
+# split data into test and train
+len_data = len(text)
+num_train = int(len_data * 0.9)
+
+train_data = text[:num_train]
+test_data = text[num_train:]
+
+# tokenize data
+tokens = sorted(list(set(text)))
+
+stoi = { ch:i for i,ch in enumerate(tokens) }
+itos = { i:ch for i,ch in enumerate(tokens) }
+encode = lambda x: [stoi[c] for c in x]
+decode = lambda x: ''.join([itos[i] for i in x])
+
+# Encode the data as tensors of token indices
+train_data = torch.tensor(encode(train_data), dtype=torch.long)
+test_data = torch.tensor(encode(test_data), dtype=torch.long)
+
+def get_batch(split):
+    # generate a small batch of data of inputs x and targets y
+    data = train_data if split == 'train' else test_data
+    ix = torch.randint(len(data) - block_size, (batch_size,))
+    x = torch.stack([data[i:i+block_size] for i in ix])
+    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
+    return x, y
+# -----------------------------------------------------
+
