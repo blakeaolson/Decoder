@@ -12,7 +12,9 @@ d_model = 32 * 4 # hidden representation for what a token is
 num_heads = 4 # number of heads in multi headed attention
 d_k = d_model // num_heads # hidden layer for attention 
 max_seq_length = 100
-
+learning_rate = 1e-3
+max_iterations = 5000
+eval_iters = 200
 # -----------------------------------------------------
 
 # Process and tokenize the input data
@@ -55,7 +57,7 @@ class Embedding(nn.Module):
     def __init__(self, vocab_size, d_model):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
-        self.positional_encoding = nn.Embedding(max_seq_length, d_model)
+        self.positional_encoding = nn.Embedding(block_size, d_model)
 
     def forward(self, inputs):
         B, T = inputs.shape
@@ -125,8 +127,10 @@ class Decoder(nn.Module):
     
     def generate(self, inputs, num_tokens):
         # inputs are (B, T)
-        for i in range(num_tokens):    
-          logits, _ = self(inputs)
+        for i in range(num_tokens):
+          # Crop idx to last block size
+          inputs_cond = inputs[:, -block_size:]
+          logits, _ = self(inputs_cond)
           # Get last token for each row
           logits = logits[:, -1, :] # (B, C)
           # Softmax it and sample the highest probability token
@@ -141,22 +145,35 @@ class Decoder(nn.Module):
 # Training the model 
 # -----------------------------------------------------
 
+
+@torch.no_grad()
+def estimate_loss():
+    out = {}
+    model.eval()
+    for split in ['train', 'val']:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = get_batch(split)
+            logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    model.train()
+    return out
+
 model = Decoder(vocab_size=vocab_size, d_model=d_model, num_heads=num_heads)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-for steps in range(5000):
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+for step in range(max_iterations):
     xb, yb = get_batch('train')
 
+    if step % 500 == 0 or step == max_iterations - 1:
+        losses = estimate_loss()
+        print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
     logits, loss = model(xb, yb)
-
-    if steps % 500 == 0:
-        print("step: ", steps, "train loss: ", loss.item())
-
     optimizer.zero_grad(set_to_none=True) 
     loss.backward() 
     optimizer.step()
-
-print(loss.item())
 # -----------------------------------------------------
 
 # Sample generation
