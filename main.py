@@ -6,16 +6,16 @@ from torch.nn import functional as F
 
 # Hyperparameters
 # -----------------------------------------------------
-batch_size = 32 # how many independent sequences will we process in parallel?
-block_size = 8 # what is the maximum context length for predictions?
-d_model = 32 * 4 # hidden representation for what a token is 
-num_heads = 4 # number of heads in multi headed attention
+batch_size = 64 # how many independent sequences will we process in parallel?
+block_size = 512 # what is the maximum context length for predictions?
+d_model = 1024 # hidden representation for what a token is 
+num_heads = 16 # number of heads in multi headed attention
 d_k = d_model // num_heads # hidden layer for attention 
 learning_rate = 1e-3
-max_iterations = 5000
+max_iterations = 300000
 eval_iters = 200
-n_layers = 4
-dropout = 0.2
+n_layers = 6
+dropout = 0.3
 # -----------------------------------------------------
 
 # Set device
@@ -203,20 +203,30 @@ model = Decoder(vocab_size=vocab_size, d_model=d_model, num_heads=num_heads).to(
 print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
 
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+loss_log = []
 for step in range(max_iterations):
     xb, yb = get_batch('train')
 
     if step % 500 == 0 or step == max_iterations - 1:
         losses = estimate_loss()
-        print(f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        log_line = f"step {step}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}"
+        print(log_line)
+        loss_log.append(log_line)
 
     logits, loss = model(xb, yb)
-    optimizer.zero_grad(set_to_none=True) 
-    loss.backward() 
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
     optimizer.step()
+
+with open('loss_log.txt', 'w', encoding='utf-8') as f:
+    for line in loss_log:
+        f.write(line + '\n')
 # -----------------------------------------------------
 
 # Sample generation
 sample_input = torch.zeros((1, 1), dtype=torch.long, device=device)
-generated = model.generate(sample_input, num_tokens=200)
-print(decode(generated[0].tolist()))
+generated = model.generate(sample_input, num_tokens=10000)
+generated_text = decode(generated[0].tolist())
+print(generated_text)
+with open('generated.txt', 'w', encoding='utf-8') as f:
+    f.write(generated_text)
