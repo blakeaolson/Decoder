@@ -15,6 +15,7 @@ learning_rate = 1e-3
 max_iterations = 5000
 eval_iters = 200
 n_layers = 4
+dropout = 0.2
 # -----------------------------------------------------
 
 # Set device
@@ -62,7 +63,8 @@ class FeedForward(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(d_model, 4 * d_model),
             nn.ReLU(),
-            nn.Linear(4 * d_model, d_model)
+            nn.Linear(4 * d_model, d_model),
+            nn.Dropout(dropout),
         )
 
     def forward(self, inputs):
@@ -88,6 +90,7 @@ class CausalAttention(nn.Module):
         self.query = nn.Linear(d_model, d_k) 
         self.key = nn.Linear(d_model, d_k) 
         self.value = nn.Linear(d_model, d_k) 
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, inputs):
         B, T, _ = inputs.shape
@@ -105,6 +108,7 @@ class CausalAttention(nn.Module):
 
         # Scale and compute attention
         attention = torch.softmax(scores / math.sqrt(d_k), dim=-1)  # (B, T, T)
+        attention = self.dropout(attention)
         output = attention @ v  
 
         return output # (B, T, d_k)
@@ -114,10 +118,11 @@ class MultiHeadedAttention(nn.Module):
         super().__init__()
         self.heads = nn.ModuleList([CausalAttention(d_model=d_model, d_k=d_model//num_heads) for _ in range(num_heads)])
         self.proj = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, inputs):
         out = torch.cat([h(inputs) for h in self.heads], dim=-1)
-        out = self.proj(out)
+        out = self.dropout(self.proj(out))
         return out
 
 class Block(nn.Module):
