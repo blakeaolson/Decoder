@@ -7,15 +7,15 @@ from torch.nn import functional as F
 # Hyperparameters
 # -----------------------------------------------------
 batch_size = 64 # how many independent sequences will we process in parallel?
-block_size = 512 # what is the maximum context length for predictions?
-d_model = 1024 # hidden representation for what a token is 
-num_heads = 16 # number of heads in multi headed attention
+block_size = 256 # what is the maximum context length for predictions?
+d_model = 512 # hidden representation for what a token is 
+num_heads = 8 # number of heads in multi headed attention
 d_k = d_model // num_heads # hidden layer for attention 
-learning_rate = 1e-3
-max_iterations = 300000
+learning_rate = 3e-4
+max_iterations = 100000
 eval_iters = 200
 n_layers = 6
-dropout = 0.3
+dropout = 0.1
 # -----------------------------------------------------
 
 # Set device
