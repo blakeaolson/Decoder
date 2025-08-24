@@ -11,7 +11,6 @@ block_size = 8 # what is the maximum context length for predictions?
 d_model = 32 * 4 # hidden representation for what a token is 
 num_heads = 4 # number of heads in multi headed attention
 d_k = d_model // num_heads # hidden layer for attention 
-max_seq_length = 100
 learning_rate = 1e-3
 max_iterations = 5000
 eval_iters = 200
@@ -53,6 +52,17 @@ def get_batch(split):
 
 # Define the model 
 # -----------------------------------------------------
+class FeedForward(nn.Module): 
+    def __init__(self, d_model):
+        super().__init__() 
+        self.net = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.ReLU()
+        )
+
+    def forward(self, inputs):
+        return self.net(inputs)
+
 class Embedding(nn.Module):
     def __init__(self, vocab_size, d_model):
         super().__init__()
@@ -107,11 +117,13 @@ class Decoder(nn.Module):
         super().__init__()
         self.embedding = Embedding(vocab_size=vocab_size, d_model=d_model) # -> (B, T, d_model)
         self.multi_headed_attention = MultiHeadedAttention(num_heads=num_heads, d_model=d_model) # -> (B, T, d_model)
+        self.feed_forward = FeedForward(d_model=d_model)
         self.linear = nn.Linear(d_model, vocab_size) # -> (B, T, vocab_size) for logits
 
     def forward(self, inputs, targets=None):
         embeddings = self.embedding(inputs)
         scores = self.multi_headed_attention(embeddings)
+        scores = self.feed_forward(scores)
         logits = self.linear(scores)
 
         if targets == None: 
@@ -177,4 +189,4 @@ for step in range(max_iterations):
 # -----------------------------------------------------
 
 # Sample generation
-print(decode(model.generate(torch.zeros((1, 1), dtype=torch.long), num_tokens=100)[0].tolist()))
+print(decode(model.generate(torch.zeros((1, 1), dtype=torch.long), num_tokens=200)[0].tolist()))
