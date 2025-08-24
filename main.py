@@ -56,8 +56,9 @@ class FeedForward(nn.Module):
     def __init__(self, d_model):
         super().__init__() 
         self.net = nn.Sequential(
-            nn.Linear(d_model, d_model),
-            nn.ReLU()
+            nn.Linear(d_model, 4 * d_model),
+            nn.ReLU(),
+            nn.Linear(4 * d_model, d_model)
         )
 
     def forward(self, inputs):
@@ -108,22 +109,41 @@ class MultiHeadedAttention(nn.Module):
     def __init__(self, num_heads, d_model):
         super().__init__()
         self.heads = nn.ModuleList([CausalAttention(d_model=d_model, d_k=d_model//num_heads) for _ in range(num_heads)])
+        self.proj = nn.Linear(d_model, d_model)
 
     def forward(self, inputs):
-        return torch.cat([h(inputs) for h in self.heads], dim=-1)
+        out = torch.cat([h(inputs) for h in self.heads], dim=-1)
+        out = self.proj(out)
+        return out
+
+class Block(nn.Module):
+    def __init__(self, d_model, num_heads):
+        super().__init__()
+        self.multi_headed_attention = MultiHeadedAttention(num_heads=num_heads, d_model=d_model)
+        self.feed_forward = FeedForward(d_model=d_model)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+    
+    def forward(self, x):
+        x = x + self.multi_headed_attention(self.ln1(x))
+        x = x + self.feed_forward(self.ln2(x))
+        return x
 
 class Decoder(nn.Module):
     def __init__(self, vocab_size, d_model, num_heads):
         super().__init__()
         self.embedding = Embedding(vocab_size=vocab_size, d_model=d_model) # -> (B, T, d_model)
-        self.multi_headed_attention = MultiHeadedAttention(num_heads=num_heads, d_model=d_model) # -> (B, T, d_model)
-        self.feed_forward = FeedForward(d_model=d_model)
+        self.blocks = nn.Sequential(
+            Block(d_model=d_model, num_heads=num_heads),
+            Block(d_model=d_model, num_heads=num_heads),
+            Block(d_model=d_model, num_heads=num_heads),
+            nn.LayerNorm(d_model),
+        )
         self.linear = nn.Linear(d_model, vocab_size) # -> (B, T, vocab_size) for logits
 
     def forward(self, inputs, targets=None):
         embeddings = self.embedding(inputs)
-        scores = self.multi_headed_attention(embeddings)
-        scores = self.feed_forward(scores)
+        scores = self.blocks(embeddings)
         logits = self.linear(scores)
 
         if targets == None: 
