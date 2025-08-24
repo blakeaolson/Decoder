@@ -200,6 +200,7 @@ def estimate_loss():
 
 
 model = Decoder(vocab_size=vocab_size, d_model=d_model, num_heads=num_heads).to(device)
+print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
 
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 for step in range(max_iterations):
