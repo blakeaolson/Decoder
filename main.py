@@ -14,7 +14,11 @@ d_k = d_model // num_heads # hidden layer for attention
 learning_rate = 1e-3
 max_iterations = 5000
 eval_iters = 200
+n_layers = 4
 # -----------------------------------------------------
+
+# Set device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Process and tokenize the input data
 # -----------------------------------------------------
@@ -47,7 +51,7 @@ def get_batch(split):
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([data[i:i+block_size] for i in ix])
     y = torch.stack([data[i+1:i+block_size+1] for i in ix])
-    return x, y
+    return x.to(device), y.to(device)
 # -----------------------------------------------------
 
 # Define the model 
@@ -133,17 +137,14 @@ class Decoder(nn.Module):
     def __init__(self, vocab_size, d_model, num_heads):
         super().__init__()
         self.embedding = Embedding(vocab_size=vocab_size, d_model=d_model) # -> (B, T, d_model)
-        self.blocks = nn.Sequential(
-            Block(d_model=d_model, num_heads=num_heads),
-            Block(d_model=d_model, num_heads=num_heads),
-            Block(d_model=d_model, num_heads=num_heads),
-            nn.LayerNorm(d_model),
-        )
+        self.blocks = nn.Sequential(*[Block(d_model=d_model, num_heads=num_heads) for _ in range(n_layers)])
+        self.ln = nn.LayerNorm(d_model)
         self.linear = nn.Linear(d_model, vocab_size) # -> (B, T, vocab_size) for logits
 
     def forward(self, inputs, targets=None):
         embeddings = self.embedding(inputs)
         scores = self.blocks(embeddings)
+        scores = self.ln(scores)
         logits = self.linear(scores)
 
         if targets == None: 
@@ -192,7 +193,8 @@ def estimate_loss():
     model.train()
     return out
 
-model = Decoder(vocab_size=vocab_size, d_model=d_model, num_heads=num_heads)
+
+model = Decoder(vocab_size=vocab_size, d_model=d_model, num_heads=num_heads).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 for step in range(max_iterations):
@@ -209,4 +211,6 @@ for step in range(max_iterations):
 # -----------------------------------------------------
 
 # Sample generation
-print(decode(model.generate(torch.zeros((1, 1), dtype=torch.long), num_tokens=200)[0].tolist()))
+sample_input = torch.zeros((1, 1), dtype=torch.long, device=device)
+generated = model.generate(sample_input, num_tokens=200)
+print(decode(generated[0].tolist()))
