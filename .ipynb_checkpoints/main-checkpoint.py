@@ -15,7 +15,7 @@ learning_rate = 3e-4
 max_iterations = 10000
 eval_iters = 200
 n_layers = 6
-dropout = 0.2
+dropout = 0.1
 # -----------------------------------------------------
 
 # Set device
