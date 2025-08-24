@@ -1,3 +1,4 @@
 # Decoder
 
-Decoder from scratch trained on shakespeare dataset  
+Decoder trained on shakespeare dataset  
+GPU: NVIDIA RTX A6000
