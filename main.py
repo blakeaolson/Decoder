@@ -80,7 +80,7 @@ class Embedding(nn.Module):
         B, T = inputs.shape
 
         embeddings = self.embedding(inputs) * math.sqrt(d_model) # (B, T, d_model)
-        pos_encoding = self.positional_encoding(torch.arange(T)) # (T, d_model)
+        pos_encoding = self.positional_encoding(torch.arange(T, device=inputs.device)) # (T, d_model)
 
         return embeddings + pos_encoding # (B, T, d_model)
 
